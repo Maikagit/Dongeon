@@ -26,21 +26,83 @@ COLORS = {
     'hero': (50, 50, 255)
 }
 
-# Board layout with corridors, a monster room and a treasure room
-BOARD_TEMPLATE = [
-    "############",
-    "#S..####..T#",
-    "#..#....#..#",
-    "#..#....#..#",
-    "####....####",
-    "#..........#",
-    "#..####..M.#",
-    "#..#..#....#",
-    "#..#..#....#",
-    "#X.#..#..T.#",
-    "#..........#",
-    "############"
-]
+# Helper functions for procedural board generation
+def dig_room(board, x, y, w, h):
+    for j in range(y, y + h):
+        for i in range(x, x + w):
+            if 0 <= i < WIDTH and 0 <= j < HEIGHT:
+                board[j][i] = FLOOR
+
+
+def surround_with_corridor(board, x, y, w, h):
+    for i in range(x - 1, x + w + 1):
+        if 0 <= i < WIDTH:
+            if y - 1 >= 0:
+                board[y - 1][i] = FLOOR
+            if y + h < HEIGHT:
+                board[y + h][i] = FLOOR
+    for j in range(y - 1, y + h + 1):
+        if 0 <= j < HEIGHT:
+            if x - 1 >= 0:
+                board[j][x - 1] = FLOOR
+            if x + w < WIDTH:
+                board[j][x + w] = FLOOR
+
+
+def connect_points(board, ax, ay, bx, by):
+    x, y = ax, ay
+    while (x, y) != (bx, by):
+        if random.choice([True, False]):
+            if x != bx:
+                x += 1 if bx > x else -1
+        if y != by:
+            y += 1 if by > y else -1
+        if x != bx and y != by and random.choice([True, False]):
+            x += 1 if bx > x else -1
+        board[y][x] = FLOOR
+
+
+def generate_board():
+    board = [[WALL for _ in range(WIDTH)] for _ in range(HEIGHT)]
+
+    base_positions = [(2, 2), (7, 2), (2, 7), (7, 7)]
+    rooms = []
+    for x, y in base_positions:
+        rx = x + random.randint(0, 1)
+        ry = y + random.randint(0, 1)
+        dig_room(board, rx, ry, 3, 3)
+        surround_with_corridor(board, rx, ry, 3, 3)
+        rooms.append((rx, ry, 3, 3))
+
+    def center(room):
+        x, y, w, h = room
+        return x + w // 2, y + h // 2
+
+    for a, b in zip(rooms, rooms[1:]):
+        ax, ay = center(a)
+        bx, by = center(b)
+        connect_points(board, ax, ay, bx, by)
+
+    for x in range(WIDTH):
+        board[0][x] = FLOOR
+        board[HEIGHT - 1][x] = FLOOR
+    for y in range(HEIGHT):
+        board[y][0] = FLOOR
+        board[y][WIDTH - 1] = FLOOR
+
+    sx, sy = center(rooms[0])
+    tx, ty = center(rooms[-1])
+    board[sy][sx] = START
+    board[ty][tx] = TREASURE
+
+    free = [(x, y) for y in range(HEIGHT) for x in range(WIDTH) if board[y][x] == FLOOR]
+    mx, my = random.choice(free)
+    board[my][mx] = MONSTER
+    free.remove((mx, my))
+    tx2, ty2 = random.choice(free)
+    board[ty2][tx2] = TRAP
+
+    return board
 
 class Dice:
     """Six sided dice with 3 sword faces and 3 shield faces"""
@@ -77,7 +139,7 @@ class Game:
         self.clock = pygame.time.Clock()
         self.font = pygame.font.SysFont(None, 24)
 
-        self.board = [list(row) for row in BOARD_TEMPLATE]
+        self.board = generate_board()
         self.hero = self._find_start()
         self.message = "Press SPACE to roll move"
         self.move_points = 0

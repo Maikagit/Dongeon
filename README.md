@@ -1,6 +1,6 @@
 # Mini Hero Quest
 
-This is a very small prototype inspired by **Hero Quest**. The board is a grid with corridors surrounding several rooms, traps, monsters and a treasure room. The hero moves by rolling a die and fights monsters using attack and defense dice. Combat results are written to `combat.log`.
+This is a very small prototype inspired by **Hero Quest**. The board is procedurally generated on each run with rooms connected by random corridors. Traps, monsters and the treasure room are placed at random locations. The hero moves by rolling a die and fights monsters using attack and defense dice. Combat results are written to `combat.log`.
 
 ## How to play
 
