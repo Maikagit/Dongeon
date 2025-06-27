@@ -104,6 +104,22 @@ def generate_board():
 
     return board
 
+# Board layout with corridors, a monster room and a treasure room
+BOARD_TEMPLATE = [
+    "############",
+    "#S..####..T#",
+    "#..#....#..#",
+    "#..#....#..#",
+    "####....####",
+    "#..........#",
+    "#..####..M.#",
+    "#..#..#....#",
+    "#..#..#....#",
+    "#X.#..#..T.#",
+    "#..........#",
+    "############"
+]
+
 class Dice:
     """Six sided dice with 3 sword faces and 3 shield faces"""
     @staticmethod
