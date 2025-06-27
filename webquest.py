@@ -49,13 +49,14 @@ def connect_points(board, ax, ay, bx, by):
 def generate_board():
     board = [[WALL for _ in range(WIDTH)] for _ in range(HEIGHT)]
     base_positions = [(2, 2), (7, 2), (2, 7), (7, 7)]
+    room_w, room_h = 4, 5  # larger rectangular rooms
     rooms = []
     for x, y in base_positions:
         rx = x + random.randint(0, 1)
         ry = y + random.randint(0, 1)
-        dig_room(board, rx, ry, 3, 3)
-        surround_with_corridor(board, rx, ry, 3, 3)
-        rooms.append((rx, ry, 3, 3))
+        dig_room(board, rx, ry, room_w, room_h)
+        surround_with_corridor(board, rx, ry, room_w, room_h)
+        rooms.append((rx, ry, room_w, room_h))
 
     def center(room):
         x, y, w, h = room
@@ -171,9 +172,10 @@ class Game:
             attack_rolls = Dice.roll_many(self.hero.attack)
             defense_rolls = Dice.roll_many(monster.defense)
             self.log(f"Hero attacks: {attack_rolls} vs {defense_rolls}")
-            if attack_rolls.count('sword') > defense_rolls.count('shield'):
-                monster.hp -= 1
-                self.log(f"Monster takes 1 damage (HP={monster.hp})")
+            damage = attack_rolls.count('sword') - defense_rolls.count('shield')
+            if damage > 0:
+                monster.hp -= damage
+                self.log(f"Monster takes {damage} damage (HP={monster.hp})")
             else:
                 self.log("Monster blocks the attack")
             if not monster.alive():
@@ -184,9 +186,10 @@ class Game:
             attack_rolls = Dice.roll_many(monster.attack)
             defense_rolls = Dice.roll_many(self.hero.defense)
             self.log(f"Monster attacks: {attack_rolls} vs {defense_rolls}")
-            if attack_rolls.count('sword') > defense_rolls.count('shield'):
-                self.hero.hp -= 1
-                self.log(f"Hero takes 1 damage (HP={self.hero.hp})")
+            damage = attack_rolls.count('sword') - defense_rolls.count('shield')
+            if damage > 0:
+                self.hero.hp -= damage
+                self.log(f"Hero takes {damage} damage (HP={self.hero.hp})")
             else:
                 self.log("Hero blocks the attack")
             if not self.hero.alive():
