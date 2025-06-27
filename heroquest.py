@@ -10,8 +10,8 @@ MONSTER = 'M'
 TREASURE = 'X'
 
 TILE_SIZE = 48
-WIDTH = 10
-HEIGHT = 10
+WIDTH = 12
+HEIGHT = 12
 SCREEN_WIDTH = WIDTH * TILE_SIZE
 SCREEN_HEIGHT = HEIGHT * TILE_SIZE + 100
 
@@ -28,16 +28,18 @@ COLORS = {
 
 # Board layout with corridors, a monster room and a treasure room
 BOARD_TEMPLATE = [
-    "##########",
-    "#S..M...T#",
-    "#..##..#.#",
-    "#..#.....#",
-    "#..####..#",
-    "#.....#..#",
-    "###M###..#",
-    "#T....X..#",
-    "#........#",
-    "##########"
+    "############",
+    "#S..####..T#",
+    "#..#....#..#",
+    "#..#....#..#",
+    "####....####",
+    "#..........#",
+    "#..####..M.#",
+    "#..#..#....#",
+    "#..#..#....#",
+    "#X.#..#..T.#",
+    "#..........#",
+    "############"
 ]
 
 class Dice:
@@ -80,6 +82,12 @@ class Game:
         self.message = "Press SPACE to roll move"
         self.move_points = 0
         self.running = True
+        self.log_file = open("combat.log", "w")
+
+    def log(self, text):
+        print(text)
+        self.log_file.write(text + "\n")
+        self.log_file.flush()
 
     def _find_start(self):
         for y, row in enumerate(self.board):
@@ -139,22 +147,33 @@ class Game:
 
     def handle_combat(self, monster):
         self.message = "A monster appears!"
+        self.log(f"Encountered monster at ({monster.x}, {monster.y})")
         while monster.alive() and self.hero.alive():
             pygame.time.delay(300)
             attack_rolls = Dice.roll_many(self.hero.attack)
             defense_rolls = Dice.roll_many(monster.defense)
+            self.log(f"Hero attacks: {attack_rolls} vs {defense_rolls}")
             if attack_rolls.count('sword') > defense_rolls.count('shield'):
                 monster.hp -= 1
+                self.log(f"Monster takes 1 damage (HP={monster.hp})")
+            else:
+                self.log("Monster blocks the attack")
             if not monster.alive():
                 self.message = "Monster defeated!"
+                self.log("Monster defeated!")
                 break
             pygame.time.delay(300)
             attack_rolls = Dice.roll_many(monster.attack)
             defense_rolls = Dice.roll_many(self.hero.defense)
+            self.log(f"Monster attacks: {attack_rolls} vs {defense_rolls}")
             if attack_rolls.count('sword') > defense_rolls.count('shield'):
                 self.hero.hp -= 1
+                self.log(f"Hero takes 1 damage (HP={self.hero.hp})")
+            else:
+                self.log("Hero blocks the attack")
             if not self.hero.alive():
                 self.message = "The monster killed you!"
+                self.log("Hero defeated!")
 
     def game_loop(self):
         while self.running:
@@ -179,6 +198,7 @@ class Game:
             pygame.display.flip()
             self.clock.tick(30)
         pygame.quit()
+        self.log_file.close()
 
 if __name__ == "__main__":
     Game().game_loop()
