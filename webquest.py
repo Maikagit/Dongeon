@@ -1,5 +1,6 @@
-import pygame
 import random
+import time
+from flask import Flask, request, redirect, url_for, render_template_string
 
 # Tile constants
 WALL = '#'
@@ -9,30 +10,15 @@ TRAP = 'T'
 MONSTER = 'M'
 TREASURE = 'X'
 
-TILE_SIZE = 48
 WIDTH = 12
 HEIGHT = 12
-SCREEN_WIDTH = WIDTH * TILE_SIZE
-SCREEN_HEIGHT = HEIGHT * TILE_SIZE + 100
 
-# Colors for drawing
-COLORS = {
-    WALL: (100, 100, 100),
-    FLOOR: (200, 200, 200),
-    START: (150, 255, 150),
-    TRAP: (255, 100, 100),
-    MONSTER: (50, 50, 50),
-    TREASURE: (255, 255, 100),
-    'hero': (50, 50, 255)
-}
-
-# Helper functions for procedural board generation
+# Board generation helpers (copied from heroquest)
 def dig_room(board, x, y, w, h):
     for j in range(y, y + h):
         for i in range(x, x + w):
             if 0 <= i < WIDTH and 0 <= j < HEIGHT:
                 board[j][i] = FLOOR
-
 
 def surround_with_corridor(board, x, y, w, h):
     for i in range(x - 1, x + w + 1):
@@ -48,7 +34,6 @@ def surround_with_corridor(board, x, y, w, h):
             if x + w < WIDTH:
                 board[j][x + w] = FLOOR
 
-
 def connect_points(board, ax, ay, bx, by):
     x, y = ax, ay
     while (x, y) != (bx, by):
@@ -61,10 +46,8 @@ def connect_points(board, ax, ay, bx, by):
             x += 1 if bx > x else -1
         board[y][x] = FLOOR
 
-
 def generate_board():
     board = [[WALL for _ in range(WIDTH)] for _ in range(HEIGHT)]
-
     base_positions = [(2, 2), (7, 2), (2, 7), (7, 7)]
     rooms = []
     for x, y in base_positions:
@@ -101,11 +84,9 @@ def generate_board():
     free.remove((mx, my))
     tx2, ty2 = random.choice(free)
     board[ty2][tx2] = TRAP
-
     return board
 
 class Dice:
-    """Six sided dice with 3 sword faces and 3 shield faces"""
     @staticmethod
     def roll():
         return 'sword' if random.randint(0, 5) < 3 else 'shield'
@@ -133,17 +114,10 @@ class Monster(Entity):
 
 class Game:
     def __init__(self):
-        pygame.init()
-        self.screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
-        pygame.display.set_caption("Mini Hero Quest")
-        self.clock = pygame.time.Clock()
-        self.font = pygame.font.SysFont(None, 24)
-
         self.board = generate_board()
         self.hero = self._find_start()
-        self.message = "Press SPACE to roll move"
+        self.message = "Press ROLL to move"
         self.move_points = 0
-        self.running = True
         self.log_file = open("combat.log", "w")
 
     def log(self, text):
@@ -159,27 +133,10 @@ class Game:
                     return Hero(x, y)
         raise ValueError("Start position not found")
 
-    def draw_board(self):
-        for y, row in enumerate(self.board):
-            for x, tile in enumerate(row):
-                color = COLORS.get(tile, (0,0,0))
-                rect = pygame.Rect(x*TILE_SIZE, y*TILE_SIZE, TILE_SIZE, TILE_SIZE)
-                pygame.draw.rect(self.screen, color, rect)
-                pygame.draw.rect(self.screen, (0,0,0), rect, 1)
-        # Draw hero
-        rect = pygame.Rect(self.hero.x*TILE_SIZE, self.hero.y*TILE_SIZE, TILE_SIZE, TILE_SIZE)
-        pygame.draw.rect(self.screen, COLORS['hero'], rect)
-
-    def draw_ui(self):
-        msg_surf = self.font.render(self.message, True, (255,255,255))
-        self.screen.blit(msg_surf, (10, SCREEN_HEIGHT-90))
-        stats = f"HP: {self.hero.hp}  Move: {self.move_points}"
-        stats_surf = self.font.render(stats, True, (255,255,255))
-        self.screen.blit(stats_surf, (10, SCREEN_HEIGHT-60))
-
     def roll_move(self):
-        self.move_points = random.randint(1,6)
-        self.message = f"Move {self.move_points} steps"
+        if self.move_points == 0:
+            self.move_points = random.randint(1, 6)
+            self.message = f"Move {self.move_points} steps"
 
     def handle_movement(self, dx, dy):
         if self.move_points <= 0:
@@ -205,13 +162,12 @@ class Game:
                     self.board[ny][nx] = FLOOR
                 if self.hero.hp <= 0:
                     self.message = "You died!"
-                    self.running = False
 
     def handle_combat(self, monster):
         self.message = "A monster appears!"
         self.log(f"Encountered monster at ({monster.x}, {monster.y})")
         while monster.alive() and self.hero.alive():
-            pygame.time.delay(300)
+            time.sleep(0.3)
             attack_rolls = Dice.roll_many(self.hero.attack)
             defense_rolls = Dice.roll_many(monster.defense)
             self.log(f"Hero attacks: {attack_rolls} vs {defense_rolls}")
@@ -224,7 +180,7 @@ class Game:
                 self.message = "Monster defeated!"
                 self.log("Monster defeated!")
                 break
-            pygame.time.delay(300)
+            time.sleep(0.3)
             attack_rolls = Dice.roll_many(monster.attack)
             defense_rolls = Dice.roll_many(self.hero.defense)
             self.log(f"Monster attacks: {attack_rolls} vs {defense_rolls}")
@@ -237,30 +193,56 @@ class Game:
                 self.message = "The monster killed you!"
                 self.log("Hero defeated!")
 
-    def game_loop(self):
-        while self.running:
-            for event in pygame.event.get():
-                if event.type == pygame.QUIT:
-                    self.running = False
-                elif event.type == pygame.KEYDOWN:
-                    if event.key == pygame.K_SPACE and self.move_points == 0:
-                        self.roll_move()
-                    elif event.key in (pygame.K_UP, pygame.K_DOWN, pygame.K_LEFT, pygame.K_RIGHT):
-                        if event.key == pygame.K_UP:
-                            self.handle_movement(0, -1)
-                        elif event.key == pygame.K_DOWN:
-                            self.handle_movement(0, 1)
-                        elif event.key == pygame.K_LEFT:
-                            self.handle_movement(-1, 0)
-                        elif event.key == pygame.K_RIGHT:
-                            self.handle_movement(1, 0)
-            self.screen.fill((0,0,0))
-            self.draw_board()
-            self.draw_ui()
-            pygame.display.flip()
-            self.clock.tick(30)
-        pygame.quit()
-        self.log_file.close()
+    def board_with_hero(self):
+        board = [row[:] for row in self.board]
+        board[self.hero.y][self.hero.x] = '@'
+        return board
+
+a = Flask(__name__)
+GAME = Game()
+
+TEMPLATE = """
+<!doctype html>
+<title>Mini Hero Quest</title>
+<h1>Mini Hero Quest (Web)</h1>
+<pre>{{board}}</pre>
+<p>{{message}}</p>
+<p>HP: {{hp}} Move: {{move_points}}</p>
+<form method="post" action="/roll"><button type="submit">Roll</button></form>
+<form method="post" action="/move">
+<button name="dir" value="up">Up</button>
+<button name="dir" value="down">Down</button>
+<button name="dir" value="left">Left</button>
+<button name="dir" value="right">Right</button>
+</form>
+<form method="post" action="/reset"><button type="submit">Reset</button></form>
+"""
+
+@a.route("/", methods=["GET"])
+def index():
+    board = "\n".join("".join(row) for row in GAME.board_with_hero())
+    return render_template_string(TEMPLATE, board=board, message=GAME.message, hp=GAME.hero.hp, move_points=GAME.move_points)
+
+@a.route("/roll", methods=["POST"])
+def roll():
+    GAME.roll_move()
+    return redirect(url_for('index'))
+
+@a.route("/move", methods=["POST"])
+def move():
+    d = request.form.get('dir')
+    moves = {'up': (0, -1), 'down': (0, 1), 'left': (-1, 0), 'right': (1, 0)}
+    if d in moves:
+        dx, dy = moves[d]
+        GAME.handle_movement(dx, dy)
+    return redirect(url_for('index'))
+
+@a.route("/reset", methods=["POST"])
+def reset():
+    global GAME
+    GAME = Game()
+    return redirect(url_for('index'))
 
 if __name__ == "__main__":
-    Game().game_loop()
+    a.run(host="0.0.0.0", port=8000)
+
