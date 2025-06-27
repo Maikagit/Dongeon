@@ -2,6 +2,7 @@
 
 This is a very small prototype inspired by **Hero Quest**. The board is procedurally generated on each run with rooms connected by random corridors. Traps, monsters and the treasure room are placed at random locations. The hero moves by rolling a die and fights monsters using attack and defense dice. Combat results are written to `combat.log`.
 
+
 ## How to play
 
 1. Install dependencies (only pygame is required):
